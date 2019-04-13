@@ -74,8 +74,7 @@ def decide_thread_number():
     valid_core = get_valid_core(all_cpu_cores_memory_left,max_using_cpu_for_one_thread) 
     number_gpu,nvidia_gpus,other_gpus = get_gpu_info()
     idx,ind = 0, 0 
-  #  nvidia_gpus = [(2,5000),(3,5000),(4,6000),(1,5000)]
-  #  other_gpus = [(5,6000),(6,2000),(7,3000)]
+
     if number_gpu ==0: # No gpu in machine
        print('we can not find any gpu')
        valid_thread_for_whole_cpu = int((free_cpu_memory - default_using_cpu) / max_using_cpu_for_one_thread)
@@ -90,7 +89,7 @@ def decide_thread_number():
            thread_for_final =  min(threads_for_cpu,threads_for_gpu)
            threads[idx] =[gpu_index, thread_for_final] 
            free_cpu_memory -= thread_for_final * size_for_one_thread
-           print(threads)
+       
      if len(other_gpus)  > 0:
         for ind, [gpu_index,gpu_memory] in enumerate(other_gpus):
            threads_for_gpu = max(int((gpu_memory- default_using_gpu) /size_for_one_thread ),0) # if start another GPU, machine has to offer space for loading moders
@@ -99,7 +98,7 @@ def decide_thread_number():
            thread_for_final =  min(threads_for_cpu,threads_for_gpu)
            threads[ind+idx+1] =[gpu_index, thread_for_final]
            free_cpu_memory -= thread_for_final * size_for_one_thread
-           print(threads)
+    
     return threads
  
               
