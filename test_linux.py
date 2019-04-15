@@ -1,41 +1,42 @@
-import wmi
-from subprocess import check_output
-def get_gpu_info():
-   computer = wmi.WMI()
-   nvidia_memory ={}
-   intel_amd_gpu_memory = {}
-   nvidiaMemory, intelAmdGpuMemory = [],[]
-   gpu_count = 0 
-   try:
-       gpu_count = len(computer.Win32_VideoController()) 
-       all_gpu_info = check_output("wmic PATH Win32_videocontroller GET adapterram", shell=True)
-       memory = [temp.split(' ')[0] for temp in all_gpu_info.split(' \r\r\n')]
-       for i in range(gpu_count):
-          gpu_info = computer.Win32_VideoController()[i]
-          print('Graphics Card: {0}'.format(gpu_info.name))
-          for gpu_name in  gpu_info.name.split(' '):
-              if gpu_name in ['nvidia','Nvidia','NVIDIA']:
-                   has_nvidia = 1
-                   break
-              else:has_nvidia = 0
-          single_gpu_memory = float(memory[i+1])/1073741824
-          if has_nvidia == 1: 
-             nvidia_memory[i] = single_gpu_memory*1024
-          if has_nvidia == 0:
-             intel_amd_gpu_memory[i] = single_gpu_memory*1024
-       nvidiaMemory=sorted(nvidia_memory.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
-       intelAmdGpuMemory=sorted(intel_amd_gpu_memory.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
-   except Exception as e:
-           pass
-   return  gpu_count,nvidiaMemory,intelAmdGpuMemory
-
 import sys
-import os
+import os, subprocess
 import atexit
 import time
 import psutil
 import numpy as np
-
+def get_gpu_info():
+   nvidia_memory ={}
+   intel_amd_gpu_memory = {}
+   gpu_count = 0 
+   nvidiaMemory = 0 
+   intelAmdGpuMemory = 0 
+   res = subprocess.Popen('grep -i memory /var/log/Xorg.1.log',shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
+   result = res.stdout.readlines()
+   if len(result) ==0:
+        res = subprocess.Popen('grep -i memory /var/log/Xorg.0.log',shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE,close_fds=True)
+        result = res.stdout.readlines()
+   for index,gpu_i in enumerate(result) :  
+     temp = str(gpu_i, encoding = "utf-8").split(' ')
+     temp = [tem.split('(')[0] for tem in temp ]
+     for i in  temp:
+         has_nvidia = 0
+         if i in ['nvidia','Nvidia','NVIDIA']:
+             has_nvidia = 1
+             break
+     if has_nvidia == 1: 
+         for indx,x in  enumerate(temp):
+            if x in ['memory:','Memory:'] and float(temp[indx+1]) > 0 :
+               nvidia_memory[index] = float(temp[indx+1])/1024
+             
+     elif has_nvidia == 0:
+          for indx,x in  enumerate(temp):
+            if x in ['memory:','Memory:'] and float(temp[indx+1]) > 0:
+               intel_amd_gpu_memory[index] = float(temp[indx+1])/1024
+   nvidiaMemory=sorted(nvidia_memory.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
+   intelAmdGpuMemory=sorted(intel_amd_gpu_memory.items(), key = lambda kv:(kv[1], kv[0]),reverse=True)
+   print(nvidiaMemory,intelAmdGpuMemory)
+   gpu_count = len(nvidia_memory)+ len(intel_amd_gpu_memory)
+   return  gpu_count,nvidiaMemory,intelAmdGpuMemory
 
 #function of Get CPU State
 def getCPUstate():
@@ -75,7 +76,7 @@ def decide_thread_number():
     number_gpu = 0 
     free_cpu_memory,all_cpu_cores_memory_left,cpu_core =  getCPUstate()
     threads = {}
-    valid_core = get_valid_core(all_cpu_cores_memory_left,max_using_cpu_for_one_thread)/2 
+    valid_core = get_valid_core(all_cpu_cores_memory_left,max_using_cpu_for_one_thread) /2
     number_gpu,nvidia_gpus,other_gpus = get_gpu_info()
     idx,ind = 0, 0 
     if number_gpu ==0: # No gpu in machine
@@ -90,7 +91,7 @@ def decide_thread_number():
            free_cpu_memory -= default_using_cpu # delete the size of models
            threads_for_cpu = max(int((free_cpu_memory)/size_for_one_thread),0)
            thread_for_final =  min(threads_for_cpu,threads_for_gpu)
-           threads[idx] =[gpu_index, min(thread_for_final,max(valid_core,0))] 
+           threads[idx] =[gpu_index, min(thread_for_final,max(valid_core,0))]
            valid_core -= thread_for_final
            free_cpu_memory -= thread_for_final * size_for_one_thread
        
@@ -103,6 +104,8 @@ def decide_thread_number():
            threads[ind+idx+1] =[gpu_index, min(thread_for_final,max(valid_core,0))]
            valid_core -= thread_for_final
            free_cpu_memory -= thread_for_final * size_for_one_thread
+
+
     
     return threads
  
