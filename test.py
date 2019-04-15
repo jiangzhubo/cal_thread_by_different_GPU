@@ -51,8 +51,6 @@ def getCPUstate():
         phymem.percent,
         str(int(used / 1024 / 1024)) + "M",
         str(int(phymem.total / 1024 / 1024)) + "M"  )
-    print(line)
-    print('every core current memory left:',all_cores_memory_left)
     free_cpu_memory = int(phymem.total / 1024 / 1024) -  int(used / 1024 / 1024)
     return free_cpu_memory,all_cores_memory_left,cpu_core
 
@@ -81,7 +79,6 @@ def decide_thread_number():
     if number_gpu ==0: # No gpu in machine
        print('we can not find any gpu')
        valid_thread_for_whole_cpu = int((free_cpu_memory - default_using_cpu) / max_using_cpu_for_one_thread)
-       print(valid_core,valid_thread_for_whole_cpu)
        threads[0] =['UNKNOWN', min(valid_thread_for_whole_cpu,valid_core)]
     elif number_gpu > 0:
      if len(nvidia_gpus) > 0:
